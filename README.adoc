@@ -1,0 +1,152 @@
+= a new rEFInd.iso
+:revnumber: 1.0
+:revdate: {docdate}
+:subject: rEFInd
+:keywords: nvme driver, rEFInd, iso
+:icons: font
+:lang: en
+:language: bash
+:sourcedir: .
+ifndef::env-github[]
+:icons: font
+endif::[]
+ifdef::env-github,env-browser[]
+:toc: preamble
+:toclevels: 2
+endif::[]
+ifdef::env-github[]
+:status:
+:outfilesuffix: .adoc
+:!toc-title:
+:caution-caption: :fire:
+:important-caption: :exclamation:
+:note-caption: :paperclip:
+:tip-caption: :bulb:
+:warning-caption: :warning:
+endif::[]
+:toc:
+
+This article shows you how to build a new rEFInd.iso with custom settings
+
+ifdef::env-github[]
+TIP: It appears you're reading this document on GitHub. If you want a prettier view, install https://chrome.google.com/webstore/detail/asciidoctorjs-live-previe/iaalpfgpbocpdfblpnhhgllgbdbchmia[Asciidoctor.js Live Preview for Chrome]
+endif::[]
+
+
+== What is this?
+
+This article shows you how to build a new rEFInd.iso with custom settings.
+
+rEFInd_nvmeDriver.iso is a modified rEFInd.iso with NvmExpressDxe-64.efi driver, as well as menu timeout set to 3
+
+This is a personal note only.
+
+
+== why?
+
+I'm using an old motherboard, which doesn't support modern nvme disk by default.
+
+Armed with nvme-pcie adapter as well as this rEFInd_nvmeDriver.iso, the machine should (at least for me) be able to detect the nvme drive during bootloader, and then successfully boot to the installed OS.
+
+== TL;DR
+
+Download the `rEFInd_nvmeDriver.iso` file should be enough.  The rest of this README is only for note purpose.
+
+== Create rEFInd.iso with NvmExpressDxe-64.efi driver
+
+=== Preparation
+* linux
+* NvmExpressDxe-64.efi
+- https://www.rodsbooks.com/refind/drivers.html[more drivers]
+* latest refind-bin-x.zip
+- I use http://sourceforge.net/projects/refind/files/0.14.0.2/refind-bin-0.14.0.2.zip/download[refind-bin-1.14.0.2.zip] here
+
+=== Get Started
+
+[source, shell]
+----
+# create a ramdisk /dev/ram0
+mknod -m 0777 /dev/ram0 b 1 0
+
+# To give it size until the drive is full (for me it is 16MB)
+# ignore the full size error
+dd if=/dev/zero of=/dev/ram0
+
+# use gparted or others to re-format it as fat16
+mke2fs /dev/ram0
+gparted /dev/ram0
+----
+
+* install refind to `/dev/ram0`
+
+** `refind-install` file is from refind-bin-x.zip as mentioned above
+
+[source, shell]
+----
+
+$ cd ~/Downloads/refind-bin-0.14.0.2
+$ sudo bash ./refind-install --usedefault /dev/ram0 --alldrivers
+
+ShimSource is none
+Installing rEFInd on Linux....
+Copied rEFInd binary files
+
+Copying sample configuration file as refind.conf; edit this file to configure
+rEFInd.
+
+
+Installation has completed successfully.
+
+Unmounting install dir
+----
+
+
+IMPORTANT: mount: /tmp/refind_install: wrong fs type, bad option, bad superblock on /dev/ram0, missing codepage or helper program, or other error.
+
+TIP: If above message displayed, change /dev/ram0 to other format, like fat16, and try to refind-install again
+
+
+* customize rEFNnd
+
+[source, shell]
+----
+# mount /dev/ram0 to /mnt directory
+mount /dev/ram0 /mnt
+
+# add nvme driver
+cp NvmExpressDxe-64.efi /mnt/EFI/BOOT/drivers_x64/
+----
+
+.Optional
+[NOTE]
+do other stuffs you want, e.g, change menu timeout
+
+[source, shell]
+----
+# optional
+# change menu timeout from 20 to 3 seconds
+$ sed -i'' 's/timeout 20/timeout 3/g' /mnt/EFI/BOOT/refind.conf
+$ cat /mnt/EFI/BOOT/refind.conf | grep -i ^timeout
+
+timeout 3
+----
+
+
+* Final step: save /dev/ram0 to a new iso
+
+[source, shell]
+----
+# Now we need to save /dev/ram0 to iso
+# create a blank 1G new.iso
+dd if=/dev/zero of=new.iso bs=1M count=1024
+
+# Write the disk device /dev/ram0 to the ISO file
+dd if=/dev/ram0 of=new.iso bs=1M
+----
+
+
+== references
+- https://superuser.com/a/835243
+- https://www.rodsbooks.com/refind/getting.html
+
+
